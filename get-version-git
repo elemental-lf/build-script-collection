@@ -1,0 +1,54 @@
+#!/bin/bash
+
+TAG_PREFIX='v'
+if [ $# == 1 ]; then
+  TAG_PREFIX="$1"
+elif [[ $# != 0 ]]; then
+  echo "usage: $0 [tag-prefix]"
+  exit 1
+fi
+
+GIT_DESCRIBE="$(git describe --long --tags --match "$TAG_PREFIX"'[0-9]*.[0-9]*.[0-9]*' --dirty=-d$(date +'%Y%m%d%H%M%S') 2>/dev/null)"
+
+if [[ ! $GIT_DESCRIBE ]]; then
+  echo unknown
+  exit 0
+fi
+
+if [[ $GIT_DESCRIBE =~ ^${TAG_PREFIX}?(.+)-([0-9]+)-(g[0-9a-f]+)(-(d.+))?$ ]]; then
+  TAG=${BASH_REMATCH[1]}
+  DISTANCE=${BASH_REMATCH[2]}
+  COMMIT=${BASH_REMATCH[3]}
+  DIRTY=${BASH_REMATCH[5]}
+else
+  echo unknown
+  exit 0
+fi
+
+# v0.1.0-0-g43ecd2f-d20180802160059
+# v0.1.0-3-g43ec123-d20180802160059
+# v0.1.0-0-g43ecd2f
+# v0.1.0-3-g43ec123
+
+# Versioning scheme based on:
+# https://www.python.org/dev/peps/pep-0440/
+# https://pypi.org/project/setuptools_scm/
+
+if [[ $DISTANCE == 0 ]]; then
+  if [[ $DIRTY ]]; then
+    echo "$TAG+$DIRTY"
+  else
+    echo "$TAG"
+  fi
+else
+  # Increment last version number by one
+  TAG_ARRAY=(${TAG//./ })
+  TAG_ARRAY[2]=$[TAG_ARRAY[2] + 1]
+  TAG="${TAG_ARRAY[0]}.${TAG_ARRAY[1]}.${TAG_ARRAY[2]}"
+
+  if [[ $DIRTY ]]; then
+    echo "$TAG.dev$DISTANCE+$COMMIT.$DIRTY"
+  else
+    echo "$TAG.dev$DISTANCE+$COMMIT"
+  fi
+fi
